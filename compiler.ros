@@ -20,22 +20,31 @@ exec ros -Q -- $0 "$@"
 ;	     (#\space
 ;  (concatenate 'string chars))
 
-(defun read-file (stream)
-  ;;  (let (code buf tokenp stringp)
-  (let (code)
-    (loop
-      :for ch = (read-char stream nil :eof)
-      :until (eq ch :eof)
-      :do (push ch code)
-      :finally (return (nreverse code)))))
+;;(defun read-file (stream)
+;;  ;;  (let (code buf tokenp stringp)
+;;  (let (code)
+;;    (loop
+;;      :for ch = (read-char stream nil :eof)
+;;      :until (eq ch :eof)
+;;      :do (push ch code)
+;;      :finally (return (nreverse code)))))
 
 (defun main (&rest argv)
   (declare (ignorable argv))
-  (loop
-    :for file :in argv
-    :do (let ((stream (open file :if-does-not-exist nil)))
-          ;;    (format t "~a~%" (tokenize (read-file in)))))
-          (format t "~a~%" (read-file stream)))))
+	(if (not (eq (length argv) 1))
+		(format t "Usage: ros compiler.ros <code>~%")
+		(progn
+			(format t ".intel_syntax noprefix~%")
+			(format t ".global main~%")
+			(format t "main:~%")
+			(format t "  mov rax, ~a~%" (car argv))
+			(format t "  ret~%"))))
+
+;;  (loop
+;;    :for file :in argv
+;;    :do (let ((stream (open file :if-does-not-exist nil)))
+;;          ;;    (format t "~a~%" (tokenize (read-file in)))))
+;;          (format t "~a~%" (read-file stream)))))
 
 
 ;;  (let* ((file (string (car argv)))
