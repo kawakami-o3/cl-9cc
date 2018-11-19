@@ -13,70 +13,38 @@ exec ros -Q -- $0 "$@"
 (in-package :ros.script.compiler.3748945022)
 
 
-
-;(defun tokenize (chars)
-;  (flet ((make-token (acc-ch acc-token chs)
-;	   (case (car chs)
-;	     (#\space
-;  (concatenate 'string chars))
-
-;;(defun read-file (stream)
-;;  ;;  (let (code buf tokenp stringp)
-;;  (let (code)
-;;    (loop
-;;      :for ch = (read-char stream nil :eof)
-;;      :until (eq ch :eof)
-;;      :do (push ch code)
-;;      :finally (return (nreverse code)))))
-
 (defun tokenize (code)
-	(let ((tok "") (lst ()))
-		(loop
-			:for c :across code
-			:do (cond
-						((or (string= "+" c) (string= "-" c))
-						 (setq lst (cons tok lst))
-						 (setq lst (cons c lst))
-						 (setq tok ""))
-						(t (setq tok (format nil "~a~a" tok c)))))
-		(if (> (length tok) 0)
-			(setq lst (cons tok lst)))
-		(reverse lst)))
-
+  (let ((tok "") (lst ()))
+    (loop
+      :for c :across code
+      :do (cond
+            ((or (string= "+" c) (string= "-" c))
+             (setq lst (cons tok lst))
+             (setq lst (cons c lst))
+             (setq tok ""))
+            (t (setq tok (format nil "~a~a" tok c)))))
+    (if (> (length tok) 0)
+      (setq lst (cons tok lst)))
+    (reverse lst)))
 
 (defun main (&rest argv)
-  ;;(declare (ignorable argv))
-	;;(format t "~a~%" argv)
-	(if (not (eq (length argv) 1))
-		(format t "Usage: ros compiler.ros <code>~%")
-		(progn
-			(format t ".intel_syntax noprefix~%")
-			(format t ".global main~%")
-			(format t "main:~%")
-			;;(format t "  mov rax, ~a~%" (tokenize (car argv)))
+  (if (not (eq (length argv) 1))
+    (format t "Usage: ros compiler.ros <code>~%")
+    (progn
+      (format t ".intel_syntax noprefix~%")
+      (format t ".global main~%")
+      (format t "main:~%")
+      ;;(format t "  mov rax, ~a~%" (tokenize (car argv)))
 
-			(let ((tokens (tokenize (car argv))))
-				(format t "  mov rax, ~a~%" (car tokens))
-				(setq tokens (cdr tokens))
-				(loop
-					:for tok :in tokens
-					:do (cond
-								((string= "+" tok) (format t "  add rax, "))
-								((string= "-" tok) (format t "  sub rax, "))
-								(t (format t "~a~%" tok)))))
-			(format t "  ret~%"))))
-
-;;  (loop
-;;    :for file :in argv
-;;    :do (let ((stream (open file :if-does-not-exist nil)))
-;;          ;;    (format t "~a~%" (tokenize (read-file in)))))
-;;          (format t "~a~%" (read-file stream)))))
-
-
-;;  (let* ((file (string (car argv)))
-;;	(in (open file :if-does-not-exist nil)))
-;;    ;;    (format t "~a~%" (tokenize (read-file in)))))
-;;    (format t "~a~%" (read-file in))))
-
+      (let ((tokens (tokenize (car argv))))
+        (format t "  mov rax, ~a~%" (car tokens))
+        (setq tokens (cdr tokens))
+        (loop
+          :for tok :in tokens
+          :do (cond
+                ((string= "+" tok) (format t "  add rax, "))
+                ((string= "-" tok) (format t "  sub rax, "))
+                (t (format t "~a~%" tok)))))
+      (format t "  ret~%"))))
 
 ;;; vim: set ft=lisp lisp:
