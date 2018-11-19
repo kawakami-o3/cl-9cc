@@ -29,15 +29,41 @@ exec ros -Q -- $0 "$@"
 ;;      :do (push ch code)
 ;;      :finally (return (nreverse code)))))
 
+(defun tokenize (code)
+	(let ((tok "") (lst ()))
+		(loop
+			:for c :across code
+			:do (cond
+						((or (string= "+" c) (string= "-" c))
+						 (setq lst (cons tok lst))
+						 (setq lst (cons c lst))
+						 (setq tok ""))
+						(t (setq tok (format nil "~a~a" tok c)))))
+		(if (> (length tok) 0)
+			(setq lst (cons tok lst)))
+		(reverse lst)))
+
+
 (defun main (&rest argv)
-  (declare (ignorable argv))
+  ;;(declare (ignorable argv))
+	;;(format t "~a~%" argv)
 	(if (not (eq (length argv) 1))
 		(format t "Usage: ros compiler.ros <code>~%")
 		(progn
 			(format t ".intel_syntax noprefix~%")
 			(format t ".global main~%")
 			(format t "main:~%")
-			(format t "  mov rax, ~a~%" (car argv))
+			;;(format t "  mov rax, ~a~%" (tokenize (car argv)))
+
+			(let ((tokens (tokenize (car argv))))
+				(format t "  mov rax, ~a~%" (car tokens))
+				(setq tokens (cdr tokens))
+				(loop
+					:for tok :in tokens
+					:do (cond
+								((string= "+" tok) (format t "  add rax, "))
+								((string= "-" tok) (format t "  sub rax, "))
+								(t (format t "~a~%" tok)))))
 			(format t "  ret~%"))))
 
 ;;  (loop
