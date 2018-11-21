@@ -12,12 +12,14 @@ exec ros -Q -- $0 "$@"
   (:use :cl))
 (in-package :ros.script.compiler.3748945022)
 
+(defun noop ())
 
 (defun tokenize (code)
   (let ((tok "") (lst ()))
     (loop
       :for c :across code
       :do (cond
+            ((string= " " c) (noop))
             ((or (string= "+" c) (string= "-" c))
              (setq lst (cons tok lst))
              (setq lst (cons c lst))
