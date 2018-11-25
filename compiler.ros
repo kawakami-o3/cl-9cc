@@ -12,7 +12,25 @@ exec ros -Q -- $0 "$@"
   (:use :cl))
 (in-package :ros.script.compiler.3748945022)
 
+
+(defparameter *tk-num* 256)
+(defparameter *tk-eof* 257)
+
+
 (defun noop ())
+
+(defstruct token
+  ty
+  val
+  str)
+
+(defun new-token-op (c)
+  (make-token :ty c :str c))
+
+(defun new-token-num (s)
+  (make-token :ty *tk-num* :val (parse-integer s) :str s))
+
+(defparameter *tokens* (make-array 100))
 
 (defun tokenize (code)
   (let ((tok "") (lst ()))
@@ -21,32 +39,90 @@ exec ros -Q -- $0 "$@"
       :do (cond
             ((string= " " c) (noop))
             ((or (string= "+" c) (string= "-" c))
-             (setq lst (cons tok lst))
-             (setq lst (cons c lst))
-             (setq tok ""))
-            (t (setq tok (format nil "~a~a" tok c)))))
+             (setf lst (cons (new-token-op c) (cons (new-token-num tok) lst)))
+             (setf tok ""))
+            ;; digit-char-p
+            (t (setf tok (format nil "~a~a" tok c)))))
     (if (> (length tok) 0)
-      (setq lst (cons tok lst)))
-    (reverse lst)))
+      (setf lst (cons (new-token-num tok) lst)))
+    (setf lst (cons (new-token-op *tk-eof*) lst))
+    (setf lst (reverse lst))
+    (loop :for l :in lst
+          :for i :from 0
+          :do (setf (aref *tokens* i) l))))
+
+(defparameter *pos* 0)
+
+(defparameter *nd-num* 256)
+
+(defstruct node
+  ty
+  lhs
+  rhs
+  val)
+
+(defun new-node (op lhs rhs)
+  (make-node :ty op :lhs lhs :rhs rhs))
+
+(defun new-node-num (val)
+  (make-node :ty *nd-num* :val val))
+
+(defun exit-error (fmt &rest args)
+  (apply #'format (cons t (cons fmt args)))
+  (format t "~%")
+  (abort))
+
+(defun num ()
+  (if (eql (token-ty (aref *tokens* *pos*)) *tk-num*)
+    (let ((ret (new-node-num (token-val (aref *tokens* *pos*)))))
+      (incf *pos*)
+      ret)
+    (exit-error "number expected, but got ~a" (token-str (aref *tokens* *pos*)))))
+
+(defun expr ()
+  (let ((lhs (num)) (op))
+    (loop :do (progn
+                (setf op (token-ty (aref *tokens* *pos*)))
+                (if (and (not (eql op #\+)) (not (eql op #\-)))
+                  (return)
+                  (progn
+                    (incf *pos*)
+                    (setf lhs (new-node op lhs (num)))))))
+    (if (not (eql (token-ty (aref *tokens* *pos*)) *tk-eof*))
+      (exit-error "stray token: ~a" (token-str (aref *tokens* *pos*))))
+    lhs))
+
+
+(defparameter *regs* (make-array 8 :initial-contents
+                                 '("rdi" "rsi" "r10" "r11" "r12" "r13" "r14" "r15")))
+(defparameter *cur* 0)
+
+(defun gen (node)
+  (let ((reg))
+    (if (eql (node-ty node) *nd-num*)
+      (progn (setf reg (aref *regs* *cur*))
+             (incf *cur*)
+             (format t "  mov ~a, ~a~%" reg (node-val node))
+             reg)
+      (let ((dst (gen (node-lhs node))) (src (gen (node-rhs node))))
+        (cond ((eql (node-ty node) #\+) (format t "  add ~a, ~a~%" dst src))
+              ((eql (node-ty node) #\-) (format t "  sub ~a, ~a~%" dst src))
+              (t (exit-error "unknown operator: ~a" (node-ty node))))
+        dst))))
+
 
 (defun main (&rest argv)
-  (if (not (eq (length argv) 1))
-    (format t "Usage: ros compiler.ros <code>~%")
-    (progn
-      (format t ".intel_syntax noprefix~%")
-      (format t ".global main~%")
-      (format t "main:~%")
-      ;;(format t "  mov rax, ~a~%" (tokenize (car argv)))
+  (let ((node))
+    (if (not (eq (length argv) 1))
+      (format t "Usage: ros compiler.ros <code>~%")
+      (progn
+        (tokenize (car argv))
+        (setf node (expr))
 
-      (let ((tokens (tokenize (car argv))))
-        (format t "  mov rax, ~a~%" (car tokens))
-        (setq tokens (cdr tokens))
-        (loop
-          :for tok :in tokens
-          :do (cond
-                ((string= "+" tok) (format t "  add rax, "))
-                ((string= "-" tok) (format t "  sub rax, "))
-                (t (format t "~a~%" tok)))))
-      (format t "  ret~%"))))
+        (format t ".intel_syntax noprefix~%")
+        (format t ".global main~%")
+        (format t "main:~%")
+        (format t "  mov rax, ~a~%" (gen node))
+        (format t "  ret~%")))))
 
 ;;; vim: set ft=lisp lisp:
