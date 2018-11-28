@@ -19,6 +19,13 @@ exec ros -Q -- $0 "$@"
 
 (defun noop ())
 
+(defmacro inc! (i)
+  `(let ((j ,i))
+     (incf ,i)
+     j))
+
+
+
 (defstruct token
   ty
   val
@@ -92,23 +99,115 @@ exec ros -Q -- $0 "$@"
       (exit-error "stray token: ~a" (token-str (aref *tokens* *pos*))))
     lhs))
 
+;; Intermediate representation
+
+(defconstant *ir-imm* 0)
+(defconstant *ir-mov* 1)
+(defconstant *ir-return* 2)
+(defconstant *ir-kill* 3)
+(defconstant *IR-NOP* 4)
+
+(defstruct ir
+  op
+  lhs
+  rhs)
+
+(defun new-ir (op lhs rhs)
+  (make-ir :op op :lhs lhs :rhs rhs))
+
+(defparameter *ins* (make-array 100))
+(defparameter *inp* 0)
+(defparameter *regno* 0)
+
+(defun gen-ir-sub (node)
+  (if (eql (node-ty node) *nd-num*)
+    (let ((r *regno*))
+      (setf (aref *ins* *inp*) (new-ir *ir-imm* r (node-val node)))
+      (incf *inp*)
+      (incf *regno*)
+      r)
+    (progn
+      (assert (or (eql (node-ty node) #\+) (eql (node-ty node) #\-)))
+      (let ((lhs (gen-ir-sub (node-lhs node))) (rhs (gen-ir-sub (node-rhs node))))
+        (setf (aref *ins* (inc! *inp*)) (new-ir (node-ty node) lhs rhs))
+        (setf (aref *ins* (inc! *inp*)) (new-ir *ir-kill* rhs 0))
+        lhs))))
+(defun gen-ir (node)
+  (let ((r (gen-ir-sub node)))
+    (setf (aref *ins* (inc! *inp*)) (new-ir *ir-return* r 0))))
+
 
 (defparameter *regs* (make-array 8 :initial-contents
                                  '("rdi" "rsi" "r10" "r11" "r12" "r13" "r14" "r15")))
-(defparameter *cur* 0)
+(defparameter *used* (make-array 8))
 
-(defun gen (node)
-  (let ((reg))
-    (if (eql (node-ty node) *nd-num*)
-      (progn (setf reg (aref *regs* *cur*))
-             (incf *cur*)
-             (format t "  mov ~a, ~a~%" reg (node-val node))
-             reg)
-      (let ((dst (gen (node-lhs node))) (src (gen (node-rhs node))))
-        (cond ((eql (node-ty node) #\+) (format t "  add ~a, ~a~%" dst src))
-              ((eql (node-ty node) #\-) (format t "  sub ~a, ~a~%" dst src))
-              (t (exit-error "unknown operator: ~a" (node-ty node))))
-        dst))))
+(defparameter *reg-map* (make-array 1000))
+
+(defun alloc (ir-reg)
+  (if (not (= (aref *reg-map* ir-reg) -1))
+    (let ((r (aref *reg-map* ir-reg)))
+      (assert (aref *used* r))
+      r)
+    (block exit
+           (loop :for i :from 0 :below (length *regs*) :by 1
+                 :do (progn
+                       (if (not (aref *used* i))
+                         (progn
+                           (setf (aref *used* i) t)
+                           (setf (aref *reg-map* ir-reg) i)
+                           (return-from exit i)))))
+           (exit-error "register exhausted"))))
+
+(defun kill (r)
+  (assert (aref *used* r))
+  (setf (aref *used* r) nil))
+
+(defun alloc-regs ()
+  (loop :for i :from 0 :below *inp* :by 1
+        :do (let* ((ir (aref *ins* i)) (op (ir-op ir)))
+              (cond ((= op *ir-imm*)
+                     (setf (ir-lhs ir) (alloc (ir-lhs ir))))
+                    ((or (= op *ir-imm*) (eql op #\+) (eql op #\-))
+                     (setf (ir-lhs ir) (alloc (ir-lhs ir)))
+                     (setf (ir-rhs ir) (alloc (ir-rhs ir))))
+                    ((= op *ir-return*)
+                     (kill (aref *reg-map* (ir-lhs ir))))
+                    ((= op *ir-kill*)
+                     (kill (aref *reg-map* (ir-lhs ir)))
+                     (setf (ir-op ir) *ir-nop*))
+                    (t (assert (and 0 "unkonw operator")))))))
+
+;;(defparameter *cur* 0)
+
+(defun gen-x86 ()
+  (loop :for i :from 0 :below *inp* :by 1
+        :do (let* ((ir (aref *ins* i)) (op (ir-op ir)))
+              (cond ((= op *ir-imm*)
+                     (format t "  mov ~a, ~a~%" (aref *regs* (ir-lhs ir)) (ir-rhs ir)))
+                    ((= op *ir-mov*)
+                     (format t "  mov ~a, ~a~%" (aref *regs* (ir-lhs ir)) (aref *regs* (ir-rhs ir))))
+                    ((= op *ir-return*)
+                     (format t "  mov rax, ~a~%" (aref *regs* (ir-lhs ir)))
+                     (format t "  ret~%"))
+                    ((eql op #\+)
+                     (format t "  add ~a, ~a~%" (aref *regs* (ir-lhs ir)) (aref *regs* (ir-rhs ir))))
+                    ((eql op #\-)
+                     (format t "  sub ~a, ~a~%" (aref *regs* (ir-lhs ir)) (aref *regs* (ir-rhs ir))))
+                    ((= op *ir-nop*))
+                    (t (assert (and 0 "unkonw operator")))))))
+
+;;(defun gen (node)
+;;  (let ((reg))
+;;    (if (eql (node-ty node) *nd-num*)
+;;      (progn (setf reg (aref *regs* *cur*))
+;;             (incf *cur*)
+;;             (format t "  mov ~a, ~a~%" reg (node-val node))
+;;             reg)
+;;      (let ((dst (gen (node-lhs node))) (src (gen (node-rhs node))))
+;;        (cond ((eql (node-ty node) #\+) (format t "  add ~a, ~a~%" dst src))
+;;              ((eql (node-ty node) #\-) (format t "  sub ~a, ~a~%" dst src))
+;;              (t (exit-error "unknown operator: ~a" (node-ty node))))
+;;        dst))))
 
 
 (defun main (&rest argv)
@@ -116,13 +215,17 @@ exec ros -Q -- $0 "$@"
     (if (not (eq (length argv) 1))
       (format t "Usage: ros compiler.ros <code>~%")
       (progn
+        (loop :for i :from 0 :below (length *reg-map*) :by 1
+              :do (setf (aref *reg-map* i) -1))
         (tokenize (car argv))
         (setf node (expr))
+        
+        (gen-ir node)
+        (alloc-regs)
 
         (format t ".intel_syntax noprefix~%")
         (format t ".global main~%")
         (format t "main:~%")
-        (format t "  mov rax, ~a~%" (gen node))
-        (format t "  ret~%")))))
+        (gen-x86)))))
 
 ;;; vim: set ft=lisp lisp:
