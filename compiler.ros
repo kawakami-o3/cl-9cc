@@ -153,10 +153,6 @@ exec ros -Q -- $0 "$@"
                            (setf (aref *used* i) t)
                            (setf (aref *reg-map* ir-reg) i)
                            (return-from exit i)))))
-           (format t "> ~a~%" ir-reg)
-           (format t "> ~a~%" (aref *used* 0))
-           (format t "> ~a~%" (aref *used* 1))
-           (format t "> ~a~%" (aref *used* 2))
            (exit-error "register exhausted"))))
 
 (defun kill (r)
