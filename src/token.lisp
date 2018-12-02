@@ -34,7 +34,7 @@
       :for c :across code
       :do (cond
             ((string= " " c) (noop))
-            ((find c "+-*" :test #'string=)
+            ((find c "+-*/" :test #'string=)
              (let ((tk (add-token v +tk-num+ tok)))
                (setf (token-val tk) (parse-integer tok)))
              (add-token v c c)
