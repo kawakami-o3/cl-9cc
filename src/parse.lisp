@@ -5,9 +5,11 @@
   (:import-from #:cl-9cc.token
                 #:token-ty
                 #:token-val
+                #:token-str
                 #:+tk-eof+
                 #:+tk-num+
                 #:*tokens*)
+  (:import-from #:cl-9cc.util #:exit-error)
   (:export #:expr
            #:+nd-num+))
 (in-package :cl-9cc.parse)
