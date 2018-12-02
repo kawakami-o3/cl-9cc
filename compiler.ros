@@ -12,10 +12,6 @@ exec ros -Q -- $0 "$@"
   (:use :cl))
 (in-package :ros.script.compiler.3748945022)
 
-
-(defconstant +tk-num+ 256)
-(defconstant +tk-eof+ 257)
-
 (defun noop ())
 
 (defmacro inc! (i)
@@ -23,37 +19,56 @@ exec ros -Q -- $0 "$@"
      (incf ,i)
      j))
 
+
+;; Vector
+(defun new-vec ()
+  (make-array 16 :initial-element nil :fill-pointer 0 :adjustable t))
+
+(defun vec-push (v elem)
+  (vector-push-extend elem v))
+
+
+;; Tokenizer
+(defconstant +tk-num+ 256)
+(defconstant +tk-eof+ 257)
+
+;; Token type
 (defstruct token
   ty
   val
   str)
 
-(defun new-token-op (c)
-  (make-token :ty c :str c))
-
-(defun new-token-num (s)
-  (make-token :ty +tk-num+ :val (parse-integer s) :str s))
-
+;;(defun new-token-op (c)
+;;  (make-token :ty c :str c))
+;;
+;;(defun new-token-num (s)
+;;  (make-token :ty +tk-num+ :val (parse-integer s) :str s))
+;;
 (defparameter *tokens* (make-array 100))
 
+(defun add-token (v ty input)
+  (let ((tok (make-token :ty ty :str input)))
+    (vec-push v tok)
+    tok))
+
 (defun tokenize (code)
-  (let ((tok "") (lst ()))
+  (let ((v (new-vec)) (tok ""))
     (loop
       :for c :across code
       :do (cond
             ((string= " " c) (noop))
             ((or (string= "+" c) (string= "-" c))
-             (setf lst (cons (new-token-op c) (cons (new-token-num tok) lst)))
+             (let ((tk (add-token v +tk-num+ tok)))
+               (setf (token-val tk) (parse-integer tok)))
+             (add-token v c c)
              (setf tok ""))
             ;; digit-char-p
             (t (setf tok (format nil "~a~a" tok c)))))
     (if (> (length tok) 0)
-      (setf lst (cons (new-token-num tok) lst)))
-    (setf lst (cons (new-token-op +tk-eof+) lst))
-    (setf lst (reverse lst))
-    (loop :for l :in lst
-          :for i :from 0
-          :do (setf (aref *tokens* i) l))))
+      (let ((tk (add-token v +tk-num+ tok)))
+        (setf (token-val tk) (parse-integer tok))))
+    (add-token v +tk-eof+ "")
+    v))
 
 (defparameter *pos* 0)
 
@@ -77,6 +92,7 @@ exec ros -Q -- $0 "$@"
   (abort))
 
 (defun num ()
+;;  (new-node-num 1))
   (if (eql (token-ty (aref *tokens* *pos*)) +tk-num+)
     (let ((ret (new-node-num (token-val (aref *tokens* *pos*)))))
       (incf *pos*)
@@ -112,33 +128,32 @@ exec ros -Q -- $0 "$@"
 (defun new-ir (op lhs rhs)
   (make-ir :op op :lhs lhs :rhs rhs))
 
-(defparameter *ins* (make-array 100))
-(defparameter *inp* 0)
 (defparameter *regno* 0)
 
-(defun gen-ir-sub (node)
-  (if (eql (node-ty node) +nd-num+)
+(defun gen-ir-sub (v node)
+  (if (eql +nd-num+ (node-ty node))
     (let ((r *regno*))
-      (setf (aref *ins* *inp*) (new-ir +ir-imm+ r (node-val node)))
-      (incf *inp*)
+      (vec-push v (new-ir +ir-imm+ r (node-val node)))
       (incf *regno*)
       r)
     (progn
       (assert (or (eql (node-ty node) #\+) (eql (node-ty node) #\-)))
-      (let ((lhs (gen-ir-sub (node-lhs node))) (rhs (gen-ir-sub (node-rhs node))))
-        (setf (aref *ins* (inc! *inp*)) (new-ir (node-ty node) lhs rhs))
-        (setf (aref *ins* (inc! *inp*)) (new-ir +ir-kill+ rhs 0))
+      (let ((lhs (gen-ir-sub v (node-lhs node))) (rhs (gen-ir-sub v (node-rhs node))))
+        (vec-push v (new-ir (node-ty node) lhs rhs))
+        (vec-push v (new-ir +ir-kill+ rhs 0))
         lhs))))
+
 (defun gen-ir (node)
-  (let ((r (gen-ir-sub node)))
-    (setf (aref *ins* (inc! *inp*)) (new-ir +ir-return+ r 0))))
+  (let* ((v (new-vec)) (r (gen-ir-sub v node)))
+    (vec-push v (new-ir +ir-return+ r 0))
+    v))
 
 
 (defparameter *regs* (make-array 8 :initial-contents
                                  '("rdi" "rsi" "r10" "r11" "r12" "r13" "r14" "r15")))
-(defparameter *used* (make-array 8 :initial-element nil))
+(defparameter *used* (make-array (length *regs*) :initial-element nil))
 
-(defparameter *reg-map* (make-array 1000))
+(defparameter *reg-map* (make-array 0))
 
 (defun alloc (ir-reg)
   (if (not (= (aref *reg-map* ir-reg) -1))
@@ -159,9 +174,13 @@ exec ros -Q -- $0 "$@"
   (assert (aref *used* r))
   (setf (aref *used* r) nil))
 
-(defun alloc-regs ()
-  (loop :for i :from 0 :below *inp* :by 1
-        :do (let* ((ir (aref *ins* i)) (op (ir-op ir)))
+(defun alloc-regs (irv)
+  (setf *reg-map* (make-array (length irv)))
+  (loop :for i :from 0 :below (length irv) :by 1
+        :do (setf (aref *reg-map* i) -1))
+
+  (loop :for i :from 0 :below (length irv) :by 1
+        :do (let* ((ir (aref irv i)) (op (ir-op ir)))
               (cond ((eql op +ir-imm+)
                      (setf (ir-lhs ir) (alloc (ir-lhs ir))))
                     ((or (eql op +ir-imm+) (eql op #\+) (eql op #\-))
@@ -174,9 +193,9 @@ exec ros -Q -- $0 "$@"
                      (setf (ir-op ir) +ir-nop+))
                     (t (assert (and 0 "unkonw operator")))))))
 
-(defun gen-x86 ()
-  (loop :for i :from 0 :below *inp* :by 1
-        :do (let* ((ir (aref *ins* i)) (op (ir-op ir)))
+(defun gen-x86 (irv)
+  (loop :for i :from 0 :below (length irv) :by 1
+        :do (let* ((ir (aref irv i)) (op (ir-op ir)))
               (cond ((eql op +ir-imm+)
                      (format t "  mov ~a, ~a~%" (aref *regs* (ir-lhs ir)) (ir-rhs ir)))
                     ((eql op +ir-mov+)
@@ -199,15 +218,15 @@ exec ros -Q -- $0 "$@"
       (progn
         (loop :for i :from 0 :below (length *reg-map*) :by 1
               :do (setf (aref *reg-map* i) -1))
-        (tokenize (car argv))
+        (setf *tokens* (tokenize (car argv)))
         (setf node (expr))
-        
-        (gen-ir node)
-        (alloc-regs)
 
-        (format t ".intel_syntax noprefix~%")
-        (format t ".global main~%")
-        (format t "main:~%")
-        (gen-x86)))))
+        (let ((irv (gen-ir node)))
+          (alloc-regs irv)
+
+          (format t ".intel_syntax noprefix~%")
+          (format t ".global main~%")
+          (format t "main:~%")
+          (gen-x86 irv))))))
 
 ;;; vim: set ft=lisp lisp:
