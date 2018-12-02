@@ -41,7 +41,7 @@
       (incf *regno*)
       r)
     (progn
-      (assert (or (eql (node-ty node) #\+) (eql (node-ty node) #\-)))
+      (assert (find (node-ty node) "+-*" :test #'eql))
       (let ((lhs (gen-ir-sub v (node-lhs node))) (rhs (gen-ir-sub v (node-rhs node))))
         (vec-push v (new-ir (node-ty node) lhs rhs))
         (vec-push v (new-ir +ir-kill+ rhs 0))

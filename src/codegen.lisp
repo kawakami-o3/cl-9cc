@@ -30,6 +30,10 @@
                      (format t "  add ~a, ~a~%" (aref *regs* (ir-lhs ir)) (aref *regs* (ir-rhs ir))))
                     ((eql op #\-)
                      (format t "  sub ~a, ~a~%" (aref *regs* (ir-lhs ir)) (aref *regs* (ir-rhs ir))))
+                    ((eql op #\*)
+                     (format t "  mov rax, ~a~%" (aref *regs* (ir-rhs ir)))
+                     (format t "  mul ~a~%" (aref *regs* (ir-lhs ir)))
+                     (format t "  mov ~a, rax~%" (aref *regs* (ir-lhs ir))))
                     ((= op +ir-nop+))
                     (t (assert (and 0 "unkonw operator")))))))
 

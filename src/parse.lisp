@@ -37,21 +37,33 @@
       ret)
     (exit-error "number expected, but got ~a" (token-str (aref *tokens* *pos*)))))
 
-(defun expr ()
+(defun mul ()
   (let ((lhs (num)) (op))
+    (loop :do (progn
+                (setf op (token-ty (aref *tokens* *pos*)))
+                (if (and (not (eql op #\*)) (not (eql op #\/)))
+                  (return)
+                  (progn
+                    (incf *pos*)
+                    (setf lhs (new-node op lhs (num)))))))
+    lhs))
+
+(defun expr ()
+  (let ((lhs (mul)) (op))
     (loop :do (progn
                 (setf op (token-ty (aref *tokens* *pos*)))
                 (if (and (not (eql op #\+)) (not (eql op #\-)))
                   (return)
                   (progn
                     (incf *pos*)
-                    (setf lhs (new-node op lhs (num)))))))
-    (if (not (eql (token-ty (aref *tokens* *pos*)) +tk-eof+))
-      (exit-error "stray token: ~a" (token-str (aref *tokens* *pos*))))
+                    (setf lhs (new-node op lhs (mul)))))))
     lhs))
 
 (defun parse (v)
   (setf *tokens* v)
   (setf *pos* 0)
-  (expr))
+  (let ((node (expr)))
+    (if (not (eql (token-ty (aref *tokens* *pos*)) +tk-eof+))
+      (exit-error "stray token: ~a" (token-str (aref *tokens* *pos*))))
+    node))
 
