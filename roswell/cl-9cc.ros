@@ -3,8 +3,6 @@
 #|
 exec ros -Q -- $0 "$@"
 |#
-
-
 (require 'asdf)
 (setf *load-verbose* nil
       *load-print* nil
@@ -12,17 +10,9 @@ exec ros -Q -- $0 "$@"
 (require 'cl-9cc)
 
 
-;;(progn ;;init forms
-;;  (ros:ensure-asdf)
-;;  ;;#+quicklisp(ql:quickload '() :silent t)
-;;  )
-;;
-;;(defpackage :ros.script.compiler.3748945022
-;;  (:use :cl))
-;;(in-package :ros.script.compiler.3748945022)
-
 (defun main (&rest argv)
   (if (not (eq (length argv) 1))
     (format t "Usage: ros compiler.ros <code>~%")
     (cl-9cc:main (car argv))))
+
 ;;; vim: set ft=lisp lisp:
