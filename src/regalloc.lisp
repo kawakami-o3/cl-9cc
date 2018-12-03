@@ -57,11 +57,10 @@
                      (setf (ir-lhs ir) (alloc (ir-lhs ir)))
                      (setf (ir-rhs ir) (alloc (ir-rhs ir))))
                     ((eql op +ir-return+)
-                     (kill (aref *reg-map* (ir-lhs ir))))
+                     ;;(kill (aref *reg-map* (ir-lhs ir))))
+                     (setf (ir-lhs ir) (alloc (ir-lhs ir))))
                     ((eql op +ir-kill+)
                      (kill (aref *reg-map* (ir-lhs ir)))
                      (setf (ir-op ir) +ir-nop+))
-                    (t (assert (and 0 "unkonw operator")))))))
-
-
+                    (t (exit-error "unkonw operator"))))))
 

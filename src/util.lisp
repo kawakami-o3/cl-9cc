@@ -35,8 +35,6 @@
 (defun map-get (m key)
   (gethash key m 0))
 
-;;(defun map-put (m key value)
-;;  (setf (gethash key m) value))
+(defun map-put (m key value)
+  (setf (gethash key m) value))
 
-(defmacro map-put (m key value)
-  `(setf (gethash ,key ,m) ,value))

@@ -13,7 +13,8 @@
 
 ;; Tokenizer
 (defconstant +tk-num+ 256)
-(defconstant +tk-eof+ 257)
+(defconstant +tk-return+ 257)
+(defconstant +tk-eof+ 258)
 
 ;; Token type
 (defstruct token
@@ -22,29 +23,59 @@
   str)
 
 (defparameter *tokens* (make-array 100))
+(defparameter *keywords* (new-map))
 
 (defun add-token (v ty input)
   (let ((tok (make-token :ty ty :str input)))
     (vec-push v tok)
     tok))
 
-(defun tokenize (code)
-  (let ((v (new-vec)) (tok ""))
-    (loop
-      :for c :across code
-      :do (cond
-            ((string= " " c) (noop))
-            ((find c "+-*/" :test #'string=)
-             (let ((tk (add-token v +tk-num+ tok)))
-               (setf (token-val tk) (parse-integer tok)))
-             (add-token v c c)
-             (setf tok ""))
-            ;; digit-char-p
-            (t (setf tok (format nil "~a~a" tok c)))))
-    (if (> (length tok) 0)
-      (let ((tk (add-token v +tk-num+ tok)))
-        (setf (token-val tk) (parse-integer tok))))
+(defun scan (code)
+  (let ((v (new-vec)) (i 0) (c ""))
+    (loop :while (< i (length code))
+          :do (progn
+                (setf c (aref code i))
+                (cond
+                  ;; Skip whitespace
+                  ((string= " " c)
+                   (incf i))
+
+                  ;; Single-letter token
+                  ((find c "+-*/;" :test #'string=)
+                   (add-token v c c)
+                   (incf i))
+
+                  ;; Keyword
+                  ((or (alpha-char-p c) (eql #\_ c))
+                   (let ((len 1) (name (format nil "~a" c)))
+                     (setf c (aref code (+ i len)))
+                     (loop :while (or (alpha-char-p c) (digit-char-p c) (eql #\_ c))
+                           :do (progn
+                                 (setf name (format nil "~a~a" name c))
+                                 (incf len)
+                                 (setf c (aref code (+ i len)))))
+                     (let ((ty (map-get *keywords* name)))
+                       (if (= 0 ty)
+                         (exit-error "unknown identifier: ~a" name)
+                         (progn
+                           (add-token v ty name)
+                           (setf i (+ i len 1)))))))
+
+                  ;; Number
+                  ((digit-char-p c)
+                   (let ((n (format nil "~a" c)))
+                     (loop :while (and (< (1+ i) (length code)) (digit-char-p (aref code (1+ i))))
+                           :do (progn
+                                 (setf n (format nil "~a~a" n (aref code (1+ i))))
+                                 (incf i)))
+                     (incf i)
+                     (let ((tok (add-token v +tk-num+ n)))
+                       (setf (token-val tok) (parse-integer n)))))
+                  (t (exit-error "cannot tokenize: ~a" c)))))
     (add-token v +tk-eof+ "")
     v))
 
+(defun tokenize (code)
+  (map-put *keywords* "return" +tk-return+)
+  (scan code))
 

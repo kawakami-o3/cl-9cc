@@ -6,4 +6,4 @@ run() {
 }
 #run 0
 #run 42
-run '2*3+4'
+run 'return 2*3+4;'

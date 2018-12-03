@@ -6,7 +6,12 @@
                 #:node-lhs
                 #:node-rhs
                 #:node-val
+                #:node-stmts
+                #:node-expr
                 #:node-ty
+                #:+nd-comp-stmt+
+                #:+nd-expr-stmt+
+                #:+nd-return+
                 #:+nd-num+)
   (:import-from #:cl-9cc.util
                 #:new-vec
@@ -23,33 +28,47 @@
 (defconstant +ir-kill+ 3)
 (defconstant +ir-nop+ 4)
 
+(defparameter *code* (new-vec))
 
 (defstruct ir
   op
   lhs
   rhs)
 
-(defun new-ir (op lhs rhs)
-  (make-ir :op op :lhs lhs :rhs rhs))
+(defun add (op lhs rhs)
+  (let ((ir (make-ir :op op :lhs lhs :rhs rhs)))
+    (vec-push *code* ir)
+    ir))
 
 (defparameter *regno* 0)
 
-(defun gen-ir-sub (v node)
+(defun gen-expr (node)
   (if (eql +nd-num+ (node-ty node))
     (let ((r *regno*))
-      (vec-push v (new-ir +ir-imm+ r (node-val node)))
+      (add +ir-imm+ r (node-val node))
       (incf *regno*)
       r)
     (progn
       (assert (find (node-ty node) "+-*/" :test #'eql))
-      (let ((lhs (gen-ir-sub v (node-lhs node))) (rhs (gen-ir-sub v (node-rhs node))))
-        (vec-push v (new-ir (node-ty node) lhs rhs))
-        (vec-push v (new-ir +ir-kill+ rhs 0))
+      (let ((lhs (gen-expr (node-lhs node))) (rhs (gen-expr (node-rhs node))))
+        (add (node-ty node) lhs rhs)
+        (add +ir-kill+ rhs 0)
         lhs))))
 
-(defun gen-ir (node)
-  (let* ((v (new-vec)) (r (gen-ir-sub v node)))
-    (vec-push v (new-ir +ir-return+ r 0))
-    v))
+(defun gen-stmt (node)
+  (cond ((eql +nd-return+ (node-ty node))
+         (let ((r (gen-expr (node-expr node))))
+           (add +ir-return+ r 0)
+           (add +ir-kill+ r 0)))
+        ((eql +nd-expr-stmt+ (node-ty node))
+         (let ((r (gen-expr (node-expr node))))
+           (add +ir-kill+ r 0)))
+        ((eql +nd-comp-stmt+ (node-ty node))
+         (loop :for s :across (node-stmts node)
+               :do (gen-stmt s)))))
 
+(defun gen-ir (node)
+  (assert (eql +nd-comp-stmt+ (node-ty node)))
+  (gen-stmt node)
+  *code*)
 
