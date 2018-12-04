@@ -5,7 +5,7 @@
     #:inc!
     #:noop #:exit-error
     #:new-vec #:vec-push
-    #:new-map #:map-get #:map-put))
+    #:new-map #:map-get #:map-put #:map-exists))
 (in-package :cl-9cc.util)
 
 (defmacro inc! (i)
@@ -37,4 +37,9 @@
 
 (defun map-put (m key value)
   (setf (gethash key m) value))
+
+(defun map-exists (m key)
+  (if (gethash key m)
+    t
+    nil))
 

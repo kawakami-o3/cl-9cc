@@ -19,17 +19,21 @@
 		(is 99 (aref vec 99))))
 
 (defun map-test ()
-	(let ((map (cl-9cc.util:new-map)))
-		(is 0 (cl-9cc.util:map-get map "foo"))
+	(let ((m (cl-9cc.util:new-map)))
+		(is 0 (cl-9cc.util:map-get m "foo"))
 
-		(cl-9cc.util:map-put map "foo" 2)
-		(is 2 (cl-9cc.util:map-get map "foo"))
+		(cl-9cc.util:map-put m "foo" 2)
+		(is 2 (cl-9cc.util:map-get m "foo"))
 
-		(cl-9cc.util:map-put map "bar" 4)
-		(is 4 (cl-9cc.util:map-get map "bar"))
+		(cl-9cc.util:map-put m "bar" 4)
+		(is 4 (cl-9cc.util:map-get m "bar"))
 
-		(cl-9cc.util:map-put map "foo" 6)
-		(is 6 (cl-9cc.util:map-get map "foo"))))
+		(cl-9cc.util:map-put m "foo" 6)
+		(is 6 (cl-9cc.util:map-get m "foo"))
+
+    (is t (cl-9cc.util:map-exists m "foo"))
+		(is nil (cl-9cc.util:map-exists m "baz"))))
+
 
 (plan nil)
 
