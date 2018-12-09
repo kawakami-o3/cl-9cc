@@ -59,6 +59,10 @@
 (defun term ()
   (let ((node (make-node)) (tok (aref *tokens* (inc! *pos*))))
     (cond
+      ((eql #\( (token-ty tok))
+       (setf node (assign))
+       (expect #\))
+       node)
       ((eql +tk-num+ (token-ty tok))
        (setf (node-ty node) +nd-num+)
        (setf (node-val node) (token-val tok))

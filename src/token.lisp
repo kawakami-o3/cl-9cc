@@ -44,7 +44,7 @@
                    (incf i))
 
                   ;; Single-letter token
-                  ((find c "+-*/;=" :test #'string=)
+                  ((find c "+-*/;=()" :test #'string=)
                    (add-token v c c)
                    (incf i))
 
