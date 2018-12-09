@@ -6,9 +6,9 @@
                 #:ir-op
                 #:ir-lhs
                 #:ir-rhs
-                #:ir-has-imm
                 #:+ir-alloca+
                 #:+ir-imm+
+                #:+ir-add-imm+
                 #:+ir-kill+
                 #:+ir-load+
                 #:+ir-mov+
@@ -53,6 +53,7 @@
   (loop :for i :from 0 :below (length irv) :by 1
         :do (let* ((ir (aref irv i)) (op (ir-op ir)))
               (cond ((or (eql op +ir-imm+)
+                         (eql op +ir-add-imm+)
                          (eql op +ir-alloca+)
                          (eql op +ir-return+))
                      (setf (ir-lhs ir) (alloc (ir-lhs ir))))
@@ -64,10 +65,9 @@
                          (eql op #\*)
                          (eql op #\/))
                      (setf (ir-lhs ir) (alloc (ir-lhs ir)))
-                     (if (not (ir-has-imm ir))
-                       (setf (ir-rhs ir) (alloc (ir-rhs ir)))))
+                     (setf (ir-rhs ir) (alloc (ir-rhs ir))))
                     ((eql op +ir-kill+)
                      (kill (aref *reg-map* (ir-lhs ir)))
                      (setf (ir-op ir) +ir-nop+))
-                    (t (exit-error "unkonw operator"))))))
+                    (t (exit-error "unknown operator"))))))
 

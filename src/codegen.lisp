@@ -6,10 +6,9 @@
                 #:ir-op
                 #:ir-lhs
                 #:ir-rhs
-                #:ir-has-imm
-                #:ir-imm
                 #:+ir-alloca+
                 #:+ir-imm+
+                #:+ir-add-imm+
                 #:+ir-mov+
                 #:+ir-nop+
                 #:+ir-load+
@@ -20,7 +19,7 @@
 (in-package :cl-9cc.codegen)
 
 
-(defparameter *n* 0)
+(defparameter *n* -1)
 
 (defun gen-label ()
   (incf *n*)
@@ -37,6 +36,9 @@
                 (cond ((eql op +ir-imm+)
                        (format t "  mov ~a, ~a~%" (aref *regs* (ir-lhs ir)) (ir-rhs ir)))
 
+                      ((eql op +ir-add-imm+)
+                       (format t "  add ~a, ~a~%" (aref *regs* (ir-lhs ir)) (ir-rhs ir)))
+
                       ((eql op +ir-mov+)
                        (format t "  mov ~a, ~a~%" (aref *regs* (ir-lhs ir)) (aref *regs* (ir-rhs ir))))
 
@@ -45,7 +47,8 @@
                        (format t "  jmp ~a~%" ret))
 
                       ((eql op +ir-alloca+)
-                       (format t "  sub rsp, ~a~%" (ir-rhs ir))
+                       (if (not (eql 0 (ir-rhs ir)))
+                         (format t "  sub rsp, ~a~%" (ir-rhs ir)))
                        (format t "  mov ~a, rsp~%" (aref *regs* (ir-lhs ir))))
 
                       ((eql op +ir-load+)
@@ -55,9 +58,7 @@
                        (format t "  mov [~a], ~a~%" (aref *regs* (ir-lhs ir)) (aref *regs* (ir-rhs ir))))
 
                       ((eql op #\+)
-                       (if (ir-has-imm ir)
-                         (format t "  add ~a, ~a~%" (aref *regs* (ir-lhs ir)) (ir-imm ir))
-                         (format t "  add ~a, ~a~%" (aref *regs* (ir-lhs ir)) (aref *regs* (ir-rhs ir)))))
+                       (format t "  add ~a, ~a~%" (aref *regs* (ir-lhs ir)) (aref *regs* (ir-rhs ir))))
 
                       ((eql op #\-)
                        (format t "  sub ~a, ~a~%" (aref *regs* (ir-lhs ir)) (aref *regs* (ir-rhs ir))))
@@ -75,7 +76,7 @@
 
                       ((= op +ir-nop+))
 
-                      (t (assert (and 0 "unkonw operator"))))))
+                      (t (assert (and 0 "unknown operator"))))))
     
     (format t "~a:~%" ret)
     (format t "  mov rsp, rbp~%")

@@ -32,6 +32,7 @@
 (defconstant +ir-store+ 5)
 (defconstant +ir-kill+ 6)
 (defconstant +ir-nop+ 7)
+(defconstant +ir-add-imm+ 8)
 
 (defparameter *code* (new-vec))
 (defparameter *regno* 1)
@@ -42,18 +43,10 @@
 (defstruct ir
   op
   lhs
-  rhs
-
-  has-imm
-  imm)
+  rhs)
 
 (defun add (op lhs rhs)
   (let ((ir (make-ir :op op :lhs lhs :rhs rhs)))
-    (vec-push *code* ir)
-    ir))
-
-(defun add-imm (op lhs imm)
-  (let ((ir (make-ir :op op :lhs lhs :has-imm t :imm imm)))
     (vec-push *code* ir)
     ir))
 
@@ -68,7 +61,7 @@
   
   (let ((r (inc! *regno*)) (off (map-get *vars* (node-name node))))
     (add +ir-mov+ r *basereg*)
-    (add-imm #\+ r off)
+    (add +ir-add-imm+ r off)
     r))
 
 (defun gen-expr (node)

@@ -9,3 +9,6 @@ run() {
 #run 'return 2*3+4;'
 run 'a=2; return a;'
 
+#run 'return (2+3)*(4+5);'
+#run 'return 5;'
+
