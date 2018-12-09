@@ -6,4 +6,6 @@ run() {
 }
 #run 0
 #run 42
-run 'return 2*3+4;'
+#run 'return 2*3+4;'
+run 'a=2; return a;'
+

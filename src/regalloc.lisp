@@ -6,10 +6,14 @@
                 #:ir-op
                 #:ir-lhs
                 #:ir-rhs
+                #:+ir-alloca+
                 #:+ir-imm+
                 #:+ir-kill+
+                #:+ir-load+
+                #:+ir-mov+
                 #:+ir-nop+
-                #:+ir-return+)
+                #:+ir-return+
+                #:+ir-store+)
 	(:import-from #:cl-9cc.util #:exit-error)
   (:export #:*reg-map*))
 (in-package :cl-9cc.regalloc)
@@ -47,18 +51,22 @@
 
   (loop :for i :from 0 :below (length irv) :by 1
         :do (let* ((ir (aref irv i)) (op (ir-op ir)))
-              (cond ((eql op +ir-imm+)
+              (cond ((or (eql op +ir-imm+)
+                         (eql op +ir-alloca+)
+                         (eql op +ir-return+))
                      (setf (ir-lhs ir) (alloc (ir-lhs ir))))
-                    ((or (eql op +ir-imm+)
+                    ((or (eql op +ir-mov+)
+                         (eql op +ir-load+)
+                         (eql op +ir-store+)
                          (eql op #\+)
                          (eql op #\-)
                          (eql op #\*)
                          (eql op #\/))
                      (setf (ir-lhs ir) (alloc (ir-lhs ir)))
                      (setf (ir-rhs ir) (alloc (ir-rhs ir))))
-                    ((eql op +ir-return+)
+                    ;;((eql op +ir-return+)
                      ;;(kill (aref *reg-map* (ir-lhs ir))))
-                     (setf (ir-lhs ir) (alloc (ir-lhs ir))))
+                     ;;(setf (ir-lhs ir) (alloc (ir-lhs ir))))
                     ((eql op +ir-kill+)
                      (kill (aref *reg-map* (ir-lhs ir)))
                      (setf (ir-op ir) +ir-nop+))

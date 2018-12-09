@@ -13,13 +13,15 @@
 
 ;; Tokenizer
 (defconstant +tk-num+ 256)
-(defconstant +tk-return+ 257)
-(defconstant +tk-eof+ 258)
+(defconstant +tk-ident+ 257)
+(defconstant +tk-return+ 258)
+(defconstant +tk-eof+ 259)
 
 ;; Token type
 (defstruct token
   ty
   val
+  name
   str)
 
 (defparameter *tokens* (make-array 100))
@@ -35,17 +37,18 @@
     (loop :while (< i (length code))
           :do (progn
                 (setf c (aref code i))
+                 
                 (cond
                   ;; Skip whitespace
                   ((string= " " c)
                    (incf i))
 
                   ;; Single-letter token
-                  ((find c "+-*/;" :test #'string=)
+                  ((find c "+-*/;=" :test #'string=)
                    (add-token v c c)
                    (incf i))
 
-                  ;; Keyword
+                  ;; Identifier
                   ((or (alpha-char-p c) (eql #\_ c))
                    (let ((len 1) (name (format nil "~a" c)))
                      (setf c (aref code (+ i len)))
@@ -56,10 +59,10 @@
                                  (setf c (aref code (+ i len)))))
                      (let ((ty (map-get *keywords* name)))
                        (if (= 0 ty)
-                         (exit-error "unknown identifier: ~a" name)
-                         (progn
-                           (add-token v ty name)
-                           (setf i (+ i len 1)))))))
+                         (setf ty +tk-ident+))
+                       (let ((tok (add-token v ty name)))
+                         (setf (token-name tok) name)
+                         (setf i (+ i len))))))
 
                   ;; Number
                   ((digit-char-p c)

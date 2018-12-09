@@ -18,8 +18,8 @@
 
 (defun main (code)
   (let ((node))
-    (loop :for i :from 0 :below (length *reg-map*) :by 1
-          :do (setf (aref *reg-map* i) -1))
+;;    (loop :for i :from 0 :below (length *reg-map*) :by 1
+;;          :do (setf (aref *reg-map* i) -1))
     (setf *tokens* (tokenize code))
     (setf node (parse *tokens*))
 
