@@ -6,6 +6,8 @@
                 #:ir-op
                 #:ir-lhs
                 #:ir-rhs
+                #:ir-has-imm
+                #:ir-imm
                 #:+ir-alloca+
                 #:+ir-imm+
                 #:+ir-mov+
@@ -53,7 +55,9 @@
                        (format t "  mov [~a], ~a~%" (aref *regs* (ir-lhs ir)) (aref *regs* (ir-rhs ir))))
 
                       ((eql op #\+)
-                       (format t "  add ~a, ~a~%" (aref *regs* (ir-lhs ir)) (aref *regs* (ir-rhs ir))))
+                       (if (ir-has-imm ir)
+                         (format t "  add ~a, ~a~%" (aref *regs* (ir-lhs ir)) (ir-imm ir))
+                         (format t "  add ~a, ~a~%" (aref *regs* (ir-lhs ir)) (aref *regs* (ir-rhs ir)))))
 
                       ((eql op #\-)
                        (format t "  sub ~a, ~a~%" (aref *regs* (ir-lhs ir)) (aref *regs* (ir-rhs ir))))

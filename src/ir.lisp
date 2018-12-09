@@ -42,10 +42,18 @@
 (defstruct ir
   op
   lhs
-  rhs)
+  rhs
+
+  has-imm
+  imm)
 
 (defun add (op lhs rhs)
   (let ((ir (make-ir :op op :lhs lhs :rhs rhs)))
+    (vec-push *code* ir)
+    ir))
+
+(defun add-imm (op lhs imm)
+  (let ((ir (make-ir :op op :lhs lhs :has-imm t :imm imm)))
     (vec-push *code* ir)
     ir))
 
@@ -58,13 +66,10 @@
       (map-put *vars* (node-name node) *bpoff*)
       (setf *bpoff* (+ *bpoff* 8))))
   
-  (let ((r1 (inc! *regno*)) (off (map-get *vars* (node-name node))) (r2 0))
-    (add +ir-mov+ r1 *basereg*)
-    (setf r2 (inc! *regno*))
-    (add +ir-imm+ r2 off)
-    (add #\+ r1 r2)
-    (add +ir-kill+ r2 -1)
-    r1))
+  (let ((r (inc! *regno*)) (off (map-get *vars* (node-name node))))
+    (add +ir-mov+ r *basereg*)
+    (add-imm #\+ r off)
+    r))
 
 (defun gen-expr (node)
   (cond ((eql +nd-num+ (node-ty node))

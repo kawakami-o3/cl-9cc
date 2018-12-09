@@ -6,6 +6,7 @@
                 #:ir-op
                 #:ir-lhs
                 #:ir-rhs
+                #:ir-has-imm
                 #:+ir-alloca+
                 #:+ir-imm+
                 #:+ir-kill+
@@ -63,10 +64,8 @@
                          (eql op #\*)
                          (eql op #\/))
                      (setf (ir-lhs ir) (alloc (ir-lhs ir)))
-                     (setf (ir-rhs ir) (alloc (ir-rhs ir))))
-                    ;;((eql op +ir-return+)
-                     ;;(kill (aref *reg-map* (ir-lhs ir))))
-                     ;;(setf (ir-lhs ir) (alloc (ir-lhs ir))))
+                     (if (not (ir-has-imm ir))
+                       (setf (ir-rhs ir) (alloc (ir-rhs ir)))))
                     ((eql op +ir-kill+)
                      (kill (aref *reg-map* (ir-lhs ir)))
                      (setf (ir-op ir) +ir-nop+))
